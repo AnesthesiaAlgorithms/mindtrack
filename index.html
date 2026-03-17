@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="MindTrack">
+<title>MindTrack — CRNA Study Hub</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f7; color: #1a1a1a; }
+:root {
+  --c1: #7F77DD; --c2: #1D9E75; --c3: #D85A30; --c4: #378ADD; --c5: #D4537E;
+  --c1l: #EEEDFE; --c2l: #E1F5EE; --c3l: #FAECE7; --c4l: #E6F1FB;
+  --bg: #f5f5f7; --card: #ffffff; --border: #e0e0e0; --text: #1a1a1a; --muted: #666;
+}
+.app { max-width: 900px; margin: 0 auto; padding: 1rem; }
+.header { background: linear-gradient(135deg, #7F77DD, #5a51c7); color: white; padding: 1rem 1.25rem; border-radius: 16px; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; }
+.clock { font-size: 28px; font-weight: 600; letter-spacing: 1px; }
+.date { font-size: 13px; opacity: 0.85; margin-top: 2px; }
+.greeting { text-align: right; font-size: 13px; opacity: 0.85; }
+.greeting strong { display: block; font-size: 16px; opacity: 1; }
+.nav { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 1rem; }
+.nav-btn { padding: 8px 14px; border-radius: 20px; border: 1.5px solid #ddd; background: white; color: #555; font-size: 12px; cursor: pointer; font-weight: 600; transition: all 0.15s; }
+.nav-btn.active { background: var(--c1); border-color: var(--c1); color: white; }
+.tab { display: none; } .tab.active { display: block; }
+.card { background: white; border: 1px solid #e8e8e8; border-radius: 14px; padding: 1rem 1.25rem; margin-bottom: 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.section-title { font-size: 15px; font-weight: 600; color: #1a1a1a; margin-bottom: 0.75rem; }
+.badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+.row { display: flex; align-items: center; gap: 10px; }
+.flex1 { flex: 1; }
+input[type=text], input[type=date], textarea, select { width: 100%; border: 1px solid #ddd; border-radius: 8px; padding: 9px 12px; font-size: 14px; background: white; color: #1a1a1a; font-family: inherit; outline: none; }
+input:focus, textarea:focus, select:focus { border-color: var(--c1); box-shadow: 0 0 0 3px rgba(127,119,221,0.15); }
+textarea { resize: vertical; min-height: 80px; }
+.btn { padding: 9px 20px; border-radius: 9px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+.btn-primary { background: var(--c1); color: white; }
+.btn-green { background: var(--c2); color: white; }
+.btn-ghost { background: #f0f0f0; color: #555; }
+.btn:hover { opacity: 0.88; transform: scale(0.99); }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 0.75rem; }
+.metric { background: #f8f8fc; border-radius: 12px; padding: 0.85rem 1rem; border: 1px solid #ececf5; }
+.metric-label { font-size: 11px; color: #888; margin-bottom: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.metric-value { font-size: 24px; font-weight: 700; color: #1a1a1a; }
+.check-item { display: flex; align-items: flex-start; gap: 10px; padding: 9px 0; border-bottom: 1px solid #f0f0f0; cursor: pointer; }
+.check-item:last-child { border-bottom: none; }
+.check-box { width: 20px; height: 20px; min-width: 20px; border-radius: 5px; border: 2px solid #ccc; background: white; display: flex; align-items: center; justify-content: center; margin-top: 1px; transition: all 0.15s; }
+.check-box.done { background: var(--c2); border-color: var(--c2); }
+.check-box.done::after { content: ''; display: block; width: 5px; height: 9px; border: 2.5px solid white; border-top: none; border-left: none; transform: rotate(45deg) translate(-1px,-1px); }
+.check-text { font-size: 14px; line-height: 1.5; flex: 1; }
+.check-text.done { text-decoration: line-through; color: #aaa; }
+.tag { font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 600; white-space: nowrap; display: inline-block; margin-left: 5px; }
+.t-cardiac { background: #FCEBEB; color: #A32D2D; }
+.t-pharm { background: #FAEEDA; color: #854F0B; }
+.t-anatomy { background: #EEEDFE; color: #534AB7; }
+.t-clinical { background: #E1F5EE; color: #085041; }
+.t-general { background: #f0f0f0; color: #555; }
+.t-apex { background: #FAECE7; color: #993C1D; }
+.t-boards { background: #E6F1FB; color: #185FA5; }
+.progress-bar { height: 8px; background: #f0f0f0; border-radius: 4px; overflow: hidden; margin-bottom: 6px; }
+.progress-fill { height: 100%; border-radius: 4px; transition: width 0.4s; background: var(--c2); }
+.pomo-wrap { display: flex; flex-direction: column; align-items: center; padding: 1rem 0; }
+.pomo-circle { width: 170px; height: 170px; border-radius: 50%; border: 8px solid #ede9fc; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; margin-bottom: 1.25rem; }
+.pomo-svg { position: absolute; top: -8px; left: -8px; }
+.pomo-time { font-size: 38px; font-weight: 700; color: #1a1a1a; }
+.pomo-lbl { font-size: 12px; color: #888; margin-top: 3px; }
+.quiz-option { padding: 12px 16px; border: 2px solid #e8e8e8; border-radius: 10px; cursor: pointer; margin-bottom: 8px; font-size: 14px; transition: all 0.15s; background: white; text-align: left; width: 100%; font-family: inherit; }
+.quiz-option:hover:not(:disabled) { border-color: var(--c1); background: var(--c1l); }
+.quiz-option.correct { border-color: var(--c2); background: var(--c2l); }
+.quiz-option.wrong { border-color: var(--c3); background: var(--c3l); }
+.mood-btn { width: 48px; height: 48px; border-radius: 50%; border: 2px solid #ddd; background: white; font-size: 22px; cursor: pointer; transition: all 0.15s; }
+.mood-btn.selected { border-color: var(--c1); transform: scale(1.18); box-shadow: 0 0 0 3px rgba(127,119,221,0.2); }
+.assign-row { display: flex; align-items: center; gap: 8px; padding: 9px 0; border-bottom: 1px solid #f0f0f0; }
+.assign-row:last-child { border-bottom: none; }
+.priority-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.day-tab { padding: 7px 13px; border-radius: 18px; border: 1.5px solid #ddd; background: white; color: #666; font-size: 12px; cursor: pointer; font-weight: 600; transition: all 0.15s; }
+.day-tab.active { background: var(--c1); border-color: var(--c1); color: white; }
+.sect-header { font-size: 11px; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 0.05em; margin: 12px 0 4px; }
+@media (max-width: 480px) { .nav-btn { font-size: 11px; padding: 7px 10px; } .clock { font-size: 22px; } }
+</style>
+</head>
+<body>
+<div class="app">
+
+<div class="header">
+  <div>
+    <div class="clock" id="clock">--:--:--</div>
+    <div class="date" id="datedisp"></div>
+  </div>
+  <div class="greeting">Welcome back,<strong>Future CRNA ✨</strong></div>
+</div>
+
+<div class="nav">
+  <button class="nav-btn active" onclick="showTab('dashboard',this)">Dashboard</button>
+  <button class="nav-btn" onclick="showTab('study',this)">Study Tracker</button>
+  <button class="nav-btn" onclick="showTab('assignments',this)">Assignments</button>
+  <button class="nav-btn" onclick="showTab('todos',this)">To-Do</button>
+  <button class="nav-btn" onclick="showTab('pomodoro',this)">Pomodoro</button>
+  <button class="nav-btn" onclick="showTab('quiz',this)">Quiz</button>
+  <button class="nav-btn" onclick="showTab('running',this)">Running</button>
+  <button class="nav-btn" onclick="showTab('mood',this)">Mood & Goals</button>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard" class="tab active">
+  <div class="grid2">
+    <div class="metric"><div class="metric-label">Study today</div><div class="metric-value" id="m-study">0%</div></div>
+    <div class="metric"><div class="metric-label">To-dos done</div><div class="metric-value" id="m-done">0</div></div>
+    <div class="metric"><div class="metric-label">Study streak</div><div class="metric-value" id="m-streak">🔥 1</div></div>
+    <div class="metric"><div class="metric-label">Miles logged</div><div class="metric-value" id="m-miles">0</div></div>
+  </div>
+  <div class="card">
+    <div class="section-title">Quick add</div>
+    <div class="row" style="gap:8px;">
+      <input type="text" id="quick-input" placeholder="Add a task, assignment, or study item..." style="flex:1;" onkeydown="if(event.key==='Enter')quickAdd()"/>
+      <select id="quick-type" style="width:120px;"><option value="todo">To-do</option><option value="assign">Assignment</option><option value="study">Study task</option></select>
+      <button class="btn btn-primary" onclick="quickAdd()">Add</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="section-title">Today's study progress</div>
+    <div id="dash-study-progress"></div>
+    <div id="dash-study-tasks"></div>
+  </div>
+  <div class="card">
+    <div class="section-title">Upcoming deadlines</div>
+    <div id="dash-upcoming"><div style="color:#888;font-size:14px;">No assignments yet.</div></div>
+  </div>
+</div>
+
+<!-- STUDY TRACKER -->
+<div id="study" class="tab">
+  <div class="card">
+    <div class="row" style="margin-bottom:0.75rem;flex-wrap:wrap;gap:8px;">
+      <div style="flex:1;"><div class="section-title" style="margin-bottom:2px;">Study Tracker</div><div style="font-size:13px;color:#888;">Check off tasks as you complete them</div></div>
+      <div id="study-overall-pct" style="font-size:26px;font-weight:700;color:var(--c2);">0%</div>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="study-main-fill" style="width:0%"></div></div>
+    <div style="font-size:12px;color:#888;margin-bottom:0.75rem;" id="study-main-label">0 of 0 tasks complete</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;" id="day-tabs"></div>
+  </div>
+  <div id="study-day-content"></div>
+  <div class="card">
+    <div class="section-title">Add custom study task</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+      <input type="text" id="st-task" placeholder="Task description" />
+      <select id="st-subject"><option value="cardiac">Cardiac (ANE 615)</option><option value="pharm">Pharmacology</option><option value="anatomy">Anatomy</option><option value="clinical">Clinical</option><option value="apex">APEX Review</option><option value="boards">Boards Prep</option><option value="general">General</option></select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+      <select id="st-day"><option value="Monday">Monday</option><option value="Tuesday">Tuesday</option><option value="Wednesday">Wednesday</option><option value="Thursday">Thursday</option><option value="Friday">Friday</option><option value="Saturday">Saturday</option><option value="Sunday">Sunday</option><option value="This Week">This Week</option></select>
+    </div>
+    <button class="btn btn-primary" onclick="addStudyTask()">Add task</button>
+  </div>
+</div>
+
+<!-- ASSIGNMENTS -->
+<div id="assignments" class="tab">
+  <div class="card">
+    <div class="section-title">Add assignment</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+      <input type="text" id="a-name" placeholder="Assignment name" />
+      <input type="text" id="a-subject" placeholder="Subject" />
+      <input type="date" id="a-due" />
+      <select id="a-priority"><option value="high">High priority</option><option value="med" selected>Medium</option><option value="low">Low</option></select>
+    </div>
+    <button class="btn btn-primary" onclick="addAssignment()">Add assignment</button>
+  </div>
+  <div class="card"><div class="section-title">All assignments</div><div id="assign-list"><div style="color:#888;font-size:14px;">No assignments yet.</div></div></div>
+</div>
+
+<!-- TO-DO -->
+<div id="todos" class="tab">
+  <div class="card">
+    <div class="row" style="gap:8px;">
+      <input type="text" id="todo-input" placeholder="Add a to-do item..." style="flex:1;" onkeydown="if(event.key==='Enter')addTodo()"/>
+      <button class="btn btn-primary" onclick="addTodo()">Add</button>
+    </div>
+  </div>
+  <div class="card"><div class="section-title">My to-dos</div><div id="todo-list"><div style="color:#888;font-size:14px;">Nothing yet!</div></div></div>
+</div>
+
+<!-- POMODORO -->
+<div id="pomodoro" class="tab">
+  <div class="card">
+    <div class="pomo-wrap">
+      <div class="pomo-circle">
+        <svg class="pomo-svg" width="186" height="186">
+          <circle cx="93" cy="93" r="85" fill="none" stroke="var(--c1)" stroke-width="8" stroke-linecap="round"
+            stroke-dasharray="534" stroke-dashoffset="534" transform="rotate(-90 93 93)" id="pomo-arc"/>
+        </svg>
+        <div class="pomo-time" id="pomo-display">25:00</div>
+        <div class="pomo-lbl" id="pomo-mode-label">Focus</div>
+      </div>
+      <div class="row" style="justify-content:center;gap:10px;margin-bottom:1rem;">
+        <button class="btn btn-primary" id="pomo-start" onclick="pomodoroToggle()">Start</button>
+        <button class="btn btn-ghost" onclick="pomodoroReset()">Reset</button>
+      </div>
+      <div class="row" style="justify-content:center;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-ghost" onclick="setPomoMode(25,'Focus')">25 min</button>
+        <button class="btn btn-ghost" onclick="setPomoMode(5,'Short break')">5 min break</button>
+        <button class="btn btn-ghost" onclick="setPomoMode(15,'Long break')">15 min break</button>
+      </div>
+      <div style="margin-top:1rem;font-size:13px;color:#888;">Sessions today: <span id="pomo-count" style="font-weight:700;color:var(--c1);">0</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- QUIZ -->
+<div id="quiz" class="tab">
+  <div id="quiz-setup" class="card">
+    <div class="section-title">Generate quiz from notes</div>
+    <div style="margin-bottom:8px;"><label style="font-size:13px;color:#888;display:block;margin-bottom:4px;">Subject</label><input type="text" id="quiz-subject" placeholder="e.g. Cardiac pharmacology, Anesthesia agents..." /></div>
+    <div style="margin-bottom:8px;"><label style="font-size:13px;color:#888;display:block;margin-bottom:4px;">Paste your notes</label><textarea id="quiz-notes" placeholder="Paste lecture notes, textbook content, or key concepts..."></textarea></div>
+    <div class="row" style="gap:8px;flex-wrap:wrap;">
+      <select id="quiz-difficulty" style="width:180px;"><option value="beginner">Beginner</option><option value="intermediate" selected>Intermediate</option><option value="advanced">Advanced (CRNA level)</option></select>
+      <select id="quiz-count" style="width:140px;"><option value="5">5 questions</option><option value="10" selected>10 questions</option><option value="15">15 questions</option></select>
+      <button class="btn btn-primary" onclick="generateQuiz()">Generate quiz</button>
+    </div>
+    <div id="quiz-gen-status" style="margin-top:8px;"></div>
+  </div>
+  <div id="quiz-area" style="display:none;">
+    <div class="card">
+      <div class="row" style="margin-bottom:0.75rem;">
+        <div class="flex1"><div style="font-size:12px;color:#888;margin-bottom:4px;" id="quiz-progress-label">Question 1 of 10</div><div class="progress-bar"><div class="progress-fill" id="quiz-progress-fill" style="background:var(--c1);width:10%;"></div></div></div>
+        <div style="font-size:13px;color:#888;">Score: <span id="quiz-score" style="font-weight:700;color:var(--c2);">0</span></div>
+      </div>
+      <div style="font-size:15px;font-weight:600;margin-bottom:1rem;line-height:1.5;" id="quiz-question">Loading...</div>
+      <div id="quiz-options"></div>
+      <div id="quiz-feedback" style="margin-top:0.75rem;font-size:13px;display:none;padding:12px 16px;border-radius:10px;line-height:1.5;"></div>
+      <button class="btn btn-primary" id="quiz-next" style="margin-top:0.75rem;display:none;" onclick="nextQuestion()">Next question</button>
+    </div>
+    <div id="quiz-results" class="card" style="display:none;text-align:center;padding:2rem;">
+      <div style="font-size:28px;font-weight:700;color:var(--c1);margin-bottom:0.5rem;" id="result-score">--</div>
+      <div style="color:#888;font-size:15px;margin-bottom:1.25rem;" id="result-msg"></div>
+      <button class="btn btn-primary" onclick="restartQuiz()">Try again</button>
+      <button class="btn btn-ghost" style="margin-left:8px;" onclick="newQuiz()">New quiz</button>
+    </div>
+  </div>
+</div>
+
+<!-- RUNNING -->
+<div id="running" class="tab">
+  <div class="card">
+    <div class="section-title">Log a run</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
+      <div><label style="font-size:12px;color:#888;display:block;margin-bottom:3px;">Miles</label><input type="text" id="run-miles" placeholder="3.1" /></div>
+      <div><label style="font-size:12px;color:#888;display:block;margin-bottom:3px;">Time (min)</label><input type="text" id="run-time" placeholder="30" /></div>
+      <div><label style="font-size:12px;color:#888;display:block;margin-bottom:3px;">How it felt</label><select id="run-feel"><option>Great</option><option>Good</option><option>OK</option><option>Tough</option></select></div>
+    </div>
+    <input type="text" id="run-notes" placeholder="Notes (optional)" style="margin-bottom:8px;" />
+    <button class="btn btn-green" onclick="logRun()">Log run</button>
+  </div>
+  <div class="grid2">
+    <div class="metric"><div class="metric-label">Total miles</div><div class="metric-value" id="total-miles">0</div></div>
+    <div class="metric"><div class="metric-label">Total runs</div><div class="metric-value" id="total-runs">0</div></div>
+  </div>
+  <div class="card"><div class="section-title">Run history</div><div id="run-list"><div style="color:#888;font-size:14px;">No runs yet. Lace up!</div></div></div>
+</div>
+
+<!-- MOOD & GOALS -->
+<div id="mood" class="tab">
+  <div class="card">
+    <div class="section-title">How are you feeling today?</div>
+    <div class="row" style="gap:10px;margin-bottom:1rem;">
+      <button class="mood-btn" onclick="setMood(1)">😔</button>
+      <button class="mood-btn" onclick="setMood(2)">😐</button>
+      <button class="mood-btn" onclick="setMood(3)">🙂</button>
+      <button class="mood-btn" onclick="setMood(4)">😊</button>
+      <button class="mood-btn" onclick="setMood(5)">🤩</button>
+    </div>
+    <div id="mood-label" style="font-size:14px;color:#888;margin-bottom:0.5rem;min-height:20px;"></div>
+    <textarea id="mood-note" placeholder="Journal entry, what happened today..."></textarea>
+    <button class="btn btn-primary" style="margin-top:8px;" onclick="saveMood()">Save check-in</button>
+  </div>
+  <div class="card">
+    <div class="section-title">My goals</div>
+    <div class="row" style="gap:8px;margin-bottom:0.75rem;"><input type="text" id="goal-input" placeholder="Add a goal..." style="flex:1;" onkeydown="if(event.key==='Enter')addGoal()"/><button class="btn btn-primary" onclick="addGoal()">Add</button></div>
+    <div id="goal-list"><div style="color:#888;font-size:14px;">No goals yet. Dream big!</div></div>
+  </div>
+  <div class="card"><div class="section-title">Recent check-ins</div><div id="mood-history"><div style="color:#888;font-size:14px;">No check-ins yet.</div></div></div>
+</div>
+
+</div>
+<script>
+const DAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const TAG_MAP={cardiac:'t-cardiac',pharm:'t-pharm',anatomy:'t-anatomy',clinical:'t-clinical',apex:'t-apex',boards:'t-boards',general:'t-general'};
+const TAG_LABELS={cardiac:'Cardiac',pharm:'Pharm',anatomy:'Anatomy',clinical:'Clinical',apex:'APEX',boards:'Boards',general:'General'};
+const MOOD_LABELS=['','😔 Rough','😐 Meh','🙂 Okay','😊 Good','🤩 Amazing'];
+const DEFAULT_TASKS=[
+  {day:'Monday',tasks:[{text:'Review cardiac lecture slides (ANE 615)',subject:'cardiac'},{text:'Read assigned cardiac chapter',subject:'cardiac'},{text:'APEX Pre-Lesson Questions — cardiac module',subject:'apex'},{text:'Post/reply to discussion board if due',subject:'general'}]},
+  {day:'Tuesday',tasks:[{text:'APEX In-Depth Review — cardiac pharmacology',subject:'pharm'},{text:'Review cardiac drug mechanisms (inotropes, vasopressors)',subject:'pharm'},{text:'Practice 20 APEX questions',subject:'boards'}]},
+  {day:'Wednesday',tasks:[{text:'Anatomy review — cardiac structures',subject:'anatomy'},{text:'Review hemodynamic monitoring concepts',subject:'cardiac'},{text:'APEX Rapid Review session',subject:'apex'},{text:'Run or physical activity',subject:'clinical'}]},
+  {day:'Thursday',tasks:[{text:'Clinical prep — review cases for next shift',subject:'clinical'},{text:'Study valve disorders (AS, MR, AR, MS)',subject:'cardiac'},{text:'Do 25 APEX board-style questions',subject:'boards'}]},
+  {day:'Friday',tasks:[{text:'Full APEX practice quiz — 30 questions',subject:'boards'},{text:'Review weak areas from this week',subject:'general'},{text:'Update study notes / flashcards',subject:'general'}]},
+  {day:'Saturday',tasks:[{text:'Light review — 10-15 APEX questions',subject:'boards'},{text:'Longer run or workout',subject:'clinical'},{text:'Prep for next week assignments',subject:'general'}]},
+  {day:'Sunday',tasks:[{text:'Weekly review — what did you learn?',subject:'general'},{text:'Plan next week tasks',subject:'general'},{text:'Rest and recharge',subject:'general'}]}
+];
+let S={todos:[],assignments:[],runs:[],moods:[],goals:[],studyTasks:JSON.parse(JSON.stringify(DEFAULT_TASKS)),studyChecked:{},pomo:{running:false,seconds:1500,total:1500,mode:'Focus',sessions:0,interval:null},quiz:{questions:[],current:0,score:0,answered:false},moodVal:0,activeDay:DAYS[new Date().getDay()]};
+try{const sv=localStorage.getItem('mt3');if(sv){const p=JSON.parse(sv);Object.assign(S,p);S.pomo=Object.assign({running:false,seconds:1500,total:1500,mode:'Focus',sessions:p.pomo?.sessions||0,interval:null});if(!S.studyTasks?.length)S.studyTasks=JSON.parse(JSON.stringify(DEFAULT_TASKS));}}catch(e){}
+function save(){try{localStorage.setItem('mt3',JSON.stringify({todos:S.todos,assignments:S.assignments,runs:S.runs,moods:S.moods,goals:S.goals,studyTasks:S.studyTasks,studyChecked:S.studyChecked,pomo:{sessions:S.pomo.sessions}}));}catch(e){}}
+function showTab(t,btn){document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.nav-btn').forEach(x=>x.classList.remove('active'));document.getElementById(t).classList.add('active');if(btn)btn.classList.add('active');if(t==='dashboard')renderDashboard();if(t==='study')renderStudy();if(t==='assignments')renderAssignments();if(t==='todos')renderTodos();if(t==='running')renderRuns();if(t==='mood'){renderGoals();renderMoodHistory();}}
+function updateClock(){const n=new Date();document.getElementById('clock').textContent=n.toLocaleTimeString();document.getElementById('datedisp').textContent=n.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});}
+setInterval(updateClock,1000);updateClock();
+function getStudyStats(){let total=0,done=0;const today=DAYS[new Date().getDay()];const d=S.studyTasks.find(x=>x.day===today);if(d)d.tasks.forEach((_,i)=>{total++;if(S.studyChecked[today+'-'+i])done++;});return{total,done,pct:total?Math.round(done/total*100):0};}
+function renderDashboard(){const st=getStudyStats();document.getElementById('m-study').textContent=st.pct+'%';document.getElementById('m-done').textContent=S.todos.filter(t=>t.done).length;document.getElementById('m-miles').textContent=S.runs.reduce((a,r)=>a+parseFloat(r.miles||0),0).toFixed(1);const today=DAYS[new Date().getDay()];const dd=S.studyTasks.find(x=>x.day===today);document.getElementById('dash-study-progress').innerHTML=`<div class="progress-bar"><div class="progress-fill" style="width:${st.pct}%"></div></div><div style="font-size:12px;color:#888;margin-bottom:10px;">${st.done} of ${st.total} tasks done today</div>`;const el=document.getElementById('dash-study-tasks');if(dd&&dd.tasks.length){el.innerHTML=dd.tasks.slice(0,5).map((t,i)=>{const k=today+'-'+i,done=S.studyChecked[k];return`<div class="check-item" onclick="toggleStudyDash('${today}',${i})"><div class="check-box ${done?'done':''}"></div><span class="check-text ${done?'done':''}">${t.text}<span class="tag ${TAG_MAP[t.subject]||'t-general'}">${TAG_LABELS[t.subject]||t.subject}</span></span></div>`;}).join('');}else{el.innerHTML='<div style="color:#888;font-size:14px;">No study tasks for today.</div>';}const sorted=[...S.assignments].sort((a,b)=>a.due>b.due?1:-1).slice(0,4);const up=document.getElementById('dash-upcoming');if(!sorted.length){up.innerHTML='<div style="color:#888;font-size:14px;">No assignments yet.</div>';}else{up.innerHTML=sorted.map(a=>`<div class="assign-row"><div class="priority-dot" style="background:${a.priority==='high'?'var(--c3)':a.priority==='med'?'var(--c4)':'var(--c2)'}"></div><span style="flex:1;font-size:14px;">${a.name}</span><span style="font-size:12px;color:#888;margin-right:8px;">${a.subject}</span>${a.due?`<span class="badge" style="background:var(--c4l);color:var(--c4);">${a.due}</span>`:''}</div>`).join('');}}
+function toggleStudyDash(day,i){const k=day+'-'+i;S.studyChecked[k]=!S.studyChecked[k];save();renderDashboard();if(document.getElementById('study').classList.contains('active'))renderStudy();}
+function renderStudy(){const today=DAYS[new Date().getDay()];document.getElementById('day-tabs').innerHTML=S.studyTasks.map(d=>`<button class="day-tab ${d.day===S.activeDay?'active':''}" onclick="setActiveDay('${d.day}')">${d.day}${d.day===today?' ★':''}</button>`).join('');let ta=0,da=0;S.studyTasks.forEach(d=>d.tasks.forEach((_,i)=>{ta++;if(S.studyChecked[d.day+'-'+i])da++;}));const p=ta?Math.round(da/ta*100):0;document.getElementById('study-overall-pct').textContent=p+'%';document.getElementById('study-main-fill').style.width=p+'%';document.getElementById('study-main-label').textContent=`${da} of ${ta} total tasks complete`;renderStudyDay();}
+function setActiveDay(day){S.activeDay=day;document.querySelectorAll('.day-tab').forEach(b=>b.classList.toggle('active',b.textContent.startsWith(day)));renderStudyDay();}
+function renderStudyDay(){const d=S.studyTasks.find(x=>x.day===S.activeDay);const el=document.getElementById('study-day-content');if(!d||!d.tasks.length){el.innerHTML='<div class="card" style="color:#888;font-size:14px;">No tasks for this day. Add some below!</div>';return;}let done=0;d.tasks.forEach((_,i)=>{if(S.studyChecked[S.activeDay+'-'+i])done++;});const pct=d.tasks.length?Math.round(done/d.tasks.length*100):0;el.innerHTML=`<div class="card"><div class="row" style="margin-bottom:8px;"><span style="flex:1;font-size:15px;font-weight:600;">${S.activeDay}</span><span style="font-size:14px;color:var(--c2);font-weight:700;">${pct}% done</span></div><div class="progress-bar" style="margin-bottom:14px;"><div class="progress-fill" style="width:${pct}%"></div></div>${d.tasks.map((t,i)=>{const k=S.activeDay+'-'+i,isDone=S.studyChecked[k];return`<div class="check-item" onclick="toggleStudy('${S.activeDay}',${i})"><div class="check-box ${isDone?'done':''}"></div><span class="check-text ${isDone?'done':''}" style="flex:1;">${t.text}<span class="tag ${TAG_MAP[t.subject]||'t-general'}">${TAG_LABELS[t.subject]||t.subject}</span></span><button onclick="event.stopPropagation();removeStudyTask('${S.activeDay}',${i})" style="background:none;border:none;color:#ccc;cursor:pointer;font-size:18px;padding:0 4px;line-height:1;">×</button></div>`;}).join('')}</div>`;}
+function toggleStudy(day,i){const k=day+'-'+i;S.studyChecked[k]=!S.studyChecked[k];save();renderStudy();renderDashboard();}
+function removeStudyTask(day,i){const d=S.studyTasks.find(x=>x.day===day);if(d){d.tasks.splice(i,1);const nc={};Object.keys(S.studyChecked).forEach(k=>{const[kd,ki]=k.split('-');if(!(kd===day&&parseInt(ki)===i)){const adj=kd===day&&parseInt(ki)>i?kd+'-'+(parseInt(ki)-1):k;nc[adj]=S.studyChecked[k];}});S.studyChecked=nc;save();renderStudy();}}
+function addStudyTask(){const text=document.getElementById('st-task').value.trim();if(!text)return;const subject=document.getElementById('st-subject').value;const dayLabel=document.getElementById('st-day').value||'This Week';let d=S.studyTasks.find(x=>x.day===dayLabel);if(!d){d={day:dayLabel,tasks:[]};S.studyTasks.push(d);}d.tasks.push({text,subject});document.getElementById('st-task').value='';S.activeDay=dayLabel;save();renderStudy();}
+function quickAdd(){const v=document.getElementById('quick-input').value.trim();const type=document.getElementById('quick-type').value;if(!v)return;if(type==='todo')S.todos.push({id:Date.now(),text:v,done:false});else if(type==='assign')S.assignments.push({id:Date.now(),name:v,subject:'General',due:'',priority:'med'});else{const today=DAYS[new Date().getDay()];let d=S.studyTasks.find(x=>x.day===today);if(!d){d={day:today,tasks:[]};S.studyTasks.push(d);}d.tasks.push({text:v,subject:'general'});}document.getElementById('quick-input').value='';save();renderDashboard();}
+function addAssignment(){const name=document.getElementById('a-name').value.trim();if(!name)return;S.assignments.push({id:Date.now(),name,subject:document.getElementById('a-subject').value||'General',due:document.getElementById('a-due').value,priority:document.getElementById('a-priority').value});document.getElementById('a-name').value='';document.getElementById('a-subject').value='';document.getElementById('a-due').value='';save();renderAssignments();}
+function renderAssignments(){const el=document.getElementById('assign-list');if(!S.assignments.length){el.innerHTML='<div style="color:#888;font-size:14px;">No assignments yet.</div>';return;}el.innerHTML=S.assignments.map(a=>`<div class="assign-row"><div class="priority-dot" style="background:${a.priority==='high'?'var(--c3)':a.priority==='med'?'var(--c4)':'var(--c2)'}"></div><span style="flex:1;font-size:14px;">${a.name}</span><span style="font-size:12px;color:#888;margin-right:8px;">${a.subject}</span>${a.due?`<span class="badge" style="background:var(--c4l);color:var(--c4);">${a.due}</span>`:''}<button onclick="removeAssignment(${a.id})" style="background:none;border:none;color:#ccc;cursor:pointer;font-size:18px;">×</button></div>`).join('');}
+function removeAssignment(id){S.assignments=S.assignments.filter(a=>a.id!==id);save();renderAssignments();renderDashboard();}
+function addTodo(){const v=document.getElementById('todo-input').value.trim();if(!v)return;S.todos.push({id:Date.now(),text:v,done:false});document.getElementById('todo-input').value='';save();renderTodos();}
+function toggleTodo(id){const t=S.todos.find(x=>x.id===id);if(t){t.done=!
