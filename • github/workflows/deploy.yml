@@ -1,27 +1,17 @@
-name: Deploy MindTrack
+name: Update MindTrack
 on:
   workflow_dispatch:
-    inputs:
-      content:
-        description: 'New index.html content'
-        required: true
-        type: string
 jobs:
-  deploy:
+  update:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
         with:
-          token: ${{ secrets.GH_PAT }}
-      - name: Update index.html
+          token: ${{ secrets.CLAUDE_PAT }}
+      - name: Push update
         run: |
-          cat > index.html << 'HTMLEOF'
-          ${{ github.event.inputs.content }}
-          HTMLEOF
-      - name: Commit and push
-        run: |
-          git config user.email "mindtrack@deploy.bot"
+          git config user.email "bot@mindtrack.app"
           git config user.name "MindTrack Bot"
-          git add index.html
-          git commit -m "Update MindTrack app"
+          git add -A
+          git diff --staged --quiet || git commit -m "Update MindTrack app"
           git push
