@@ -161,6 +161,7 @@ textarea{resize:vertical;min-height:100px;line-height:1.5;}
   <button class="nav-btn" id="btn-todos" onclick="showTab('todos','btn-todos')">✅ To-Do</button>
   <button class="nav-btn" id="btn-pomodoro" onclick="showTab('pomodoro','btn-pomodoro')">⏱️ Pomodoro</button>
   <button class="nav-btn" id="btn-quiz" onclick="showTab('quiz','btn-quiz')">🧠 Quiz</button>
+  <button class="nav-btn" id="btn-quizhistory" onclick="showTab('quizhistory','btn-quizhistory')">📊 Quiz History</button>
   <button class="nav-btn" id="btn-running" onclick="showTab('running','btn-running')">🏃 Running</button>
   <button class="nav-btn" id="btn-mood" onclick="showTab('mood','btn-mood')">😊 Mood</button>
 </div>
@@ -396,6 +397,15 @@ textarea{resize:vertical;min-height:100px;line-height:1.5;}
   </div>
 </div>
 
+<!-- QUIZ HISTORY -->
+<div id="quizhistory" class="tab">
+  <div class="card card-glow-purple">
+    <h3>📊 Quiz history</h3>
+    <div id="qh-summary" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;"></div>
+    <div id="qh-list"></div>
+  </div>
+</div>
+
 <!-- RUNNING -->
 <div id="running" class="tab">
   <div class="card card-glow-green">
@@ -517,6 +527,7 @@ let S = {
   pomo: { running:false, seconds:3000, total:3000, mode:'Focus', sessions:0, interval:null,
           focusMins:50, shortMins:10, longMins:20, sessionsBefore:4, sessionCount:0 },
   quiz: { questions:[], current:0, score:0, answered:false },
+  quizHistory: [],  // [{id, date, subject, score, total, pct, questions:[{q,options,answer,explanation,userAnswer}]}]
   moodVal: 0,
   activeDay: DAYS[new Date().getDay()],
   calYear: new Date().getFullYear(),
@@ -531,6 +542,7 @@ function sv() {
       studyTasks:S.studyTasks, studyChecked:S.studyChecked,
       studyHistory:S.studyHistory, studyMinutes:S.studyMinutes,
       calendarEvents:S.calendarEvents,
+      quizHistory:S.quizHistory,
       pomo:{ sessions:S.pomo.sessions, focusMins:S.pomo.focusMins, shortMins:S.pomo.shortMins,
              longMins:S.pomo.longMins, sessionsBefore:S.pomo.sessionsBefore }
     }));
@@ -547,6 +559,7 @@ function ld() {
     if (p.studyHistory) S.studyHistory = p.studyHistory;
     if (p.studyMinutes) S.studyMinutes = p.studyMinutes;
     if (p.calendarEvents && p.calendarEvents.length) S.calendarEvents = p.calendarEvents;
+    if (p.quizHistory) S.quizHistory = p.quizHistory;
     if (p.pomo) {
       S.pomo.sessions      = p.pomo.sessions || 0;
       S.pomo.focusMins     = p.pomo.focusMins || 50;
@@ -612,6 +625,7 @@ function showTab(t, btnId) {
   if (t==='assignments') renderAssignments();
   if (t==='todos')      renderTodos();
   if (t==='running')    renderRuns();
+  if (t==='quizhistory') renderQuizHistory();
   if (t==='mood')       { renderGoals(); renderMoodHistory(); }
 }
 
@@ -1359,6 +1373,8 @@ function renderQuestion() {
 }
 function answerQ(i) {
   if(S.quiz.answered)return; S.quiz.answered=true;
+  if(!S.quiz.userAnswers) S.quiz.userAnswers=[];
+  S.quiz.userAnswers[S.quiz.current]=i;
   const q=S.quiz.questions[S.quiz.current];
   const opts=document.querySelectorAll('.quiz-option'); opts.forEach(b=>b.disabled=true);
   const fb=document.getElementById('quiz-feedback');
@@ -1376,8 +1392,8 @@ function showResults(){
   document.getElementById('result-score').textContent=S.quiz.score+'/'+total+' — '+pct+'%';
   document.getElementById('result-msg').textContent=pct>=80?'🏆 Excellent — CRNA material mastered!':pct>=60?'Good effort! Review the ones you missed.':'💪 Keep pushing — you\'ve got this!';
 }
-function restartQuiz(){S.quiz.current=0;S.quiz.score=0;renderQuestion();document.getElementById('quiz-results').style.display='none';}
-function newQuiz(){document.getElementById('quiz-setup').style.display='block';document.getElementById('quiz-area').style.display='none';}
+function restartQuiz(){S.quiz.current=0;S.quiz.score=0;S.quiz.userAnswers=[];renderQuestion();document.getElementById('quiz-results').style.display='none';}
+function newQuiz(){S.quiz.userAnswers=[];document.getElementById('quiz-setup').style.display='block';document.getElementById('quiz-area').style.display='none';}
 
 // ── RUNNING ────────────────────────────────────────────────────────────────
 function logRun() {
