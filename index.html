@@ -193,19 +193,19 @@ textarea{resize:vertical;min-height:100px;line-height:1.5;}
       </div>
       <div style="display:flex;gap:12px;flex-wrap:wrap;">
         <div style="text-align:center;">
-          <div id="cd-days" style="font-size:32px;font-weight:800;background:linear-gradient(135deg,#a78bfa,#34d399);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1;">--</div>
+          <div id="cd-months" style="font-size:32px;font-weight:800;background:linear-gradient(135deg,#a78bfa,#34d399);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1;">--</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1px;margin-top:2px;">Months</div>
+        </div>
+        <div style="text-align:center;">
+          <div id="cd-days" style="font-size:32px;font-weight:800;color:rgba(167,139,250,0.8);line-height:1;">--</div>
           <div style="font-size:10px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1px;margin-top:2px;">Days</div>
         </div>
         <div style="text-align:center;">
-          <div id="cd-hours" style="font-size:32px;font-weight:800;color:rgba(167,139,250,0.7);line-height:1;">--</div>
+          <div id="cd-hours" style="font-size:32px;font-weight:800;color:rgba(167,139,250,0.55);line-height:1;">--</div>
           <div style="font-size:10px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1px;margin-top:2px;">Hours</div>
         </div>
         <div style="text-align:center;">
-          <div id="cd-mins" style="font-size:32px;font-weight:800;color:rgba(167,139,250,0.5);line-height:1;">--</div>
-          <div style="font-size:10px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1px;margin-top:2px;">Mins</div>
-        </div>
-        <div style="text-align:center;">
-          <div id="cd-secs" style="font-size:32px;font-weight:800;color:rgba(167,139,250,0.35);line-height:1;">--</div>
+          <div id="cd-secs" style="font-size:32px;font-weight:800;color:rgba(167,139,250,0.3);line-height:1;">--</div>
           <div style="font-size:10px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1px;margin-top:2px;">Secs</div>
         </div>
       </div>
@@ -654,6 +654,19 @@ function ld() {
       S.pomo.sessionsBefore= p.pomo.sessionsBefore || 4;
       S.pomo.seconds       = S.pomo.focusMins * 60;
       S.pomo.total         = S.pomo.focusMins * 60;
+    }
+  } catch(e) {}
+  // Migrate from old mt5 key if mt6 is empty
+  try {
+    const mt5 = localStorage.getItem('mt5');
+    if (mt5) {
+      const p5 = JSON.parse(mt5);
+      if (p5.todos && p5.todos.length && !S.todos.length)             S.todos = p5.todos;
+      if (p5.assignments && p5.assignments.length && !S.assignments.length) S.assignments = p5.assignments;
+      if (p5.runs && p5.runs.length && !S.runs.length)                S.runs = p5.runs;
+      if (p5.moods && p5.moods.length && !S.moods.length)             S.moods = p5.moods;
+      if (p5.goals && p5.goals.length && !S.goals.length)             S.goals = p5.goals;
+      if (p5.studyChecked && !Object.keys(S.studyChecked).length)     S.studyChecked = p5.studyChecked;
     }
   } catch(e) {}
 }
@@ -1728,37 +1741,38 @@ function renderYTSaved() {
   });
 }
 // ── GRADUATION COUNTDOWN ──────────────────────────────────────────────────
-// Target: May 15, 2027 (midpoint of May — adjust day if needed)
-const GRAD_DATE = new Date('2027-05-15T10:00:00');
-// Program start estimate: August 2024 (Barry University SRNA typically 28-month program)
-const PROG_START = new Date('2024-08-01T00:00:00');
+const GRAD_DATE  = new Date('2027-05-15T10:00:00');
+const PROG_START = new Date('2024-05-01T00:00:00'); // Program start: May 2024
 
 function updateCountdown() {
-  const now = new Date();
+  const now  = new Date();
   const diff = GRAD_DATE - now;
   if (diff <= 0) {
-    document.getElementById('cd-days').textContent = '🎓';
-    document.getElementById('cd-hours').textContent = '0';
-    document.getElementById('cd-mins').textContent = '0';
-    document.getElementById('cd-secs').textContent = '0';
-    document.getElementById('cd-pct').textContent = 'You did it!';
-    document.getElementById('cd-prog').style.width = '100%';
+    document.getElementById('cd-months').textContent = '🎓';
+    document.getElementById('cd-days').textContent   = '0';
+    document.getElementById('cd-hours').textContent  = '0';
+    document.getElementById('cd-secs').textContent   = '0';
+    document.getElementById('cd-pct').textContent    = 'You did it!';
+    document.getElementById('cd-prog').style.width   = '100%';
     return;
   }
-  const days  = Math.floor(diff / (1000*60*60*24));
-  const hours = Math.floor((diff % (1000*60*60*24)) / (1000*60*60));
-  const mins  = Math.floor((diff % (1000*60*60)) / (1000*60));
-  const secs  = Math.floor((diff % (1000*60)) / 1000);
-  document.getElementById('cd-days').textContent  = days;
-  document.getElementById('cd-hours').textContent = String(hours).padStart(2,'0');
-  document.getElementById('cd-mins').textContent  = String(mins).padStart(2,'0');
-  document.getElementById('cd-secs').textContent  = String(secs).padStart(2,'0');
-  // Progress bar: how far through the program are we?
+  // Calculate months, days, hours, secs
+  const totalSecs  = Math.floor(diff / 1000);
+  const months     = Math.floor(diff / (1000*60*60*24*30.4375));
+  const remAfterMo = diff - months * (1000*60*60*24*30.4375);
+  const days       = Math.floor(remAfterMo / (1000*60*60*24));
+  const hours      = Math.floor((remAfterMo % (1000*60*60*24)) / (1000*60*60));
+  const secs       = Math.floor((diff % (1000*60)) / 1000);
+  document.getElementById('cd-months').textContent = months;
+  document.getElementById('cd-days').textContent   = days;
+  document.getElementById('cd-hours').textContent  = String(hours).padStart(2,'0');
+  document.getElementById('cd-secs').textContent   = String(secs).padStart(2,'0');
+  // Progress bar
   const totalDur = GRAD_DATE - PROG_START;
   const elapsed  = now - PROG_START;
   const pct = Math.min(100, Math.max(0, Math.round(elapsed/totalDur*100)));
   document.getElementById('cd-prog').style.width = pct+'%';
-  document.getElementById('cd-pct').textContent = pct+'% complete';
+  document.getElementById('cd-pct').textContent  = pct+'% through the program';
 }
 updateCountdown();
 setInterval(updateCountdown, 1000);
