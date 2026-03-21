@@ -1231,20 +1231,79 @@ dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('dragover
 dz.addEventListener('dragleave',()=>dz.classList.remove('dragover'));
 dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('dragover');handleFiles(e.dataTransfer.files);});
 function handleFileSelect(e) { handleFiles(e.target.files); }
-function handleFiles(files) {
-  Array.from(files).forEach(file => {
-    const reader=new FileReader();
-    reader.onload=ev=>{const text=ev.target.result;const ex=document.getElementById('quiz-notes').value;document.getElementById('quiz-notes').value=(ex?ex+'\n\n':'')+('--- '+file.name+' ---\n'+text);addFileChip(file.name);};
-    if(file.type==='application/pdf'){document.getElementById('quiz-notes').value+=(document.getElementById('quiz-notes').value?'\n\n':'')+('[PDF: '+file.name+' — paste text for best results]');addFileChip(file.name);}
-    else reader.readAsText(file);
+async function extractPDF(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try {
+        if (!window.pdfjsLib) {
+          await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+        const typedArray = new Uint8Array(ev.target.result);
+        const pdf = await window.pdfjsLib.getDocument({ data: typedArray }).promise;
+        let fullText = '';
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          fullText += content.items.map(item => item.str).join(' ') + '\n';
+        }
+        resolve(fullText.trim());
+      } catch(e) { reject(e); }
+    };
+    reader.readAsArrayBuffer(file);
   });
 }
-function addFileChip(name) {
-  const chips=document.getElementById('file-chips');
-  const chip=document.createElement('span'); chip.className='file-chip';
-  chip.innerHTML='📄 '+name+' <span class="file-chip-remove" onclick="this.parentElement.remove()">×</span>';
-  chips.appendChild(chip);
+async function extractDOCX(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try {
+        if (!window.mammoth) {
+          await loadScript('https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js');
+        }
+        const result = await window.mammoth.extractRawText({ arrayBuffer: ev.target.result });
+        resolve(result.value.trim());
+      } catch(e) { reject(e); }
+    };
+    reader.readAsArrayBuffer(file);
+  });
 }
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector('script[src="'+src+'"]')) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = src; s.onload = resolve; s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+async function handleFiles(files) {
+  Array.from(files).forEach(async (file) => {
+    const statusEl = document.getElementById('quiz-gen-status');
+    statusEl.innerHTML = '<span style="color:#60a5fa;font-size:13px;">📄 Reading '+file.name+'...</span>';
+    addFileChip(file.name);
+    try {
+      let text = '';
+      if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+        text = await extractPDF(file);
+      } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || file.name.endsWith('.docx')) {
+        text = await extractDOCX(file);
+      } else {
+        text = await file.text();
+      }
+      if (!text || text.length < 10) {
+        statusEl.innerHTML = '<span style="color:#f87171;font-size:13px;">⚠️ Could not extract text from '+file.name+'. Try copy-pasting the text instead.</span>';
+        return;
+      }
+      const ex = document.getElementById('quiz-notes').value;
+      document.getElementById('quiz-notes').value = (ex ? ex+'\n\n' : '') + '--- '+file.name+' ---\n'+text;
+      statusEl.innerHTML = '<span style="color:#34d399;font-size:13px;">✓ '+file.name+' loaded ('+text.length+' chars)</span>';
+    } catch(e) {
+      statusEl.innerHTML = '<span style="color:#f87171;font-size:13px;">⚠️ Error reading '+file.name+': '+e.message+'</span>';
+    }
+  });
+}
+
 async function generateQuiz() {
   const notes=document.getElementById('quiz-notes').value.trim();
   const subject=document.getElementById('quiz-subject').value.trim()||'Anesthesia';
@@ -1275,7 +1334,11 @@ async function generateQuiz() {
     renderQuestion();
   } catch(e) {
     console.error('Quiz error:', e);
-    document.getElementById('quiz-gen-status').innerHTML='<span style="color:#f87171;font-size:13px;">Error: '+e.message+' — check console for details.</span>';
+    let msg = e.message || 'Unknown error';
+    if (msg.includes('credit') || msg.includes('balance')) msg = '💳 No API credits — add credits at console.anthropic.com/settings/billing';
+    else if (msg.includes('401') || msg.includes('auth')) msg = '🔑 Invalid API key — check your key at console.anthropic.com';
+    else if (msg.includes('parse') || msg.includes('JSON')) msg = '⚠️ Bad response from API — try again';
+    document.getElementById('quiz-gen-status').innerHTML='<span style="color:#f87171;font-size:13px;">'+msg+'</span>';
   }
 }
 function renderQuestion() {
