@@ -356,6 +356,12 @@ textarea{resize:vertical;min-height:100px;line-height:1.5;}
       <button class="btn btn-purple btn-sm" onclick="applyCustomPomo()">Apply custom</button>
       <label class="sound-toggle"><input type="checkbox" id="sound-on" checked> 🔔 Timer sounds on</label>
     </div>
+    <div style="margin-top:10px;border-top:1px solid rgba(255,255,255,0.06);padding-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <span style="font-size:11px;color:rgba(255,255,255,0.3);">Sync data across devices:</span>
+      <button class="btn btn-ghost btn-sm" onclick="exportData()">📤 Export backup</button>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('import-file').click()">📥 Import backup</button>
+      <input type="file" id="import-file" accept=".json" style="display:none;" onchange="importData(event)">
+    </div>
   </div>
   <div class="card card-glow-purple" style="text-align:center;">
     <div id="pomo-mode-top" style="font-size:10px;color:#64748b;letter-spacing:3px;text-transform:uppercase;margin-bottom:8px;">Focus</div>
@@ -569,20 +575,20 @@ textarea{resize:vertical;min-height:100px;line-height:1.5;}
     <h3>📝 Log study time manually</h3>
     <div class="modal-row">
       <label>Date</label>
-      <input type="date" id="manual-log-date">
+      <input type="date" id="manual-log-date" onchange="onManualDateChange()">
     </div>
     <div class="modal-row">
-      <label>Minutes studied</label>
-      <input type="number" id="manual-log-mins" min="1" max="720" placeholder="e.g. 90">
+      <label>Total minutes studied <span id="manual-log-existing" style="color:rgba(167,139,250,0.6);font-weight:400;"></span></label>
+      <input type="number" id="manual-log-mins" min="0" max="1440" placeholder="e.g. 90">
     </div>
     <div class="modal-row">
-      <label>Sessions to add (optional)</label>
+      <label>Sessions today <span style="font-weight:400;color:rgba(255,255,255,0.3);">(set total count)</span></label>
       <input type="number" id="manual-log-sessions" min="0" max="20" placeholder="e.g. 2" value="0">
     </div>
-    <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:4px;">This adds to any existing time already logged for that day.</div>
+    <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:4px;">⚠️ This <strong>sets</strong> the total for that day — replaces whatever is stored, so enter the correct total.</div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeManualLog()">Cancel</button>
-      <button class="btn btn-purple" onclick="saveManualLog()">Add time</button>
+      <button class="btn btn-purple" onclick="saveManualLog()">Set time</button>
     </div>
   </div>
 </div>
@@ -1815,41 +1821,45 @@ function updatePomoStats(){
 }
 
 function openManualStudyLog(){
-  // Pre-fill date with today
-  document.getElementById('manual-log-date').value = todayStr();
-  document.getElementById('manual-log-mins').value = '';
-  document.getElementById('manual-log-sessions').value = '0';
+  const ds = todayStr();
+  document.getElementById('manual-log-date').value = ds;
+  // Pre-fill with current value so user can see and correct it
+  const existing = S.studyMinutes[ds] || 0;
+  document.getElementById('manual-log-mins').value = existing || '';
+  document.getElementById('manual-log-sessions').value = S.pomo.sessions || '0';
   document.getElementById('manual-log-modal').classList.add('open');
 }
 function closeManualLog(){
   document.getElementById('manual-log-modal').classList.remove('open');
 }
+function onManualDateChange(){
+  const dateVal = document.getElementById('manual-log-date').value;
+  const existing = S.studyMinutes[dateVal] || 0;
+  const lbl = document.getElementById('manual-log-existing');
+  if(lbl) lbl.textContent = existing ? '(currently '+existing+'m)' : '(none logged)';
+  document.getElementById('manual-log-mins').value = existing || '';
+}
 function saveManualLog(){
   const dateVal = document.getElementById('manual-log-date').value;
-  const minsVal = parseInt(document.getElementById('manual-log-mins').value) || 0;
+  const minsVal = parseInt(document.getElementById('manual-log-mins').value);
   const sessVal = parseInt(document.getElementById('manual-log-sessions').value) || 0;
   if(!dateVal){ alert('Please pick a date.'); return; }
-  if(!minsVal && !sessVal){ alert('Please enter minutes or sessions to add.'); return; }
-  // Add minutes
-  if(minsVal > 0){
-    S.studyMinutes[dateVal] = (S.studyMinutes[dateVal]||0) + minsVal;
-    if(!S.studyTotalMinutes) S.studyTotalMinutes = {};
-    S.studyTotalMinutes[dateVal] = (S.studyTotalMinutes[dateVal]||0) + minsVal;
-  }
-  // Add sessions (only affects today's count)
-  if(sessVal > 0 && dateVal === todayStr()){
-    S.pomo.sessions += sessVal;
+  if(isNaN(minsVal)){ alert('Please enter total minutes.'); return; }
+  // SET (overwrite) the value for that date
+  S.studyMinutes[dateVal] = minsVal;
+  if(!S.studyTotalMinutes) S.studyTotalMinutes = {};
+  S.studyTotalMinutes[dateVal] = minsVal;
+  // Set sessions count for today
+  if(dateVal === todayStr()){
+    S.pomo.sessions = sessVal;
     S.pomo.sessionsDate = todayStr();
   }
-  // Snapshot study history for that date if it's today
   if(dateVal === todayStr()) snapshotStudyHistory();
   sv();
   updatePomoStats();
   renderPomoStudyGraph();
-  if(document.getElementById('study').classList.contains('active')){
-    renderStudyGraph();
-  }
-  addPomoLog('✏️ Manual: +'+minsVal+'m logged for '+dateVal, '#a78bfa');
+  if(document.getElementById('study').classList.contains('active')) renderStudyGraph();
+  addPomoLog('✏️ Set: '+minsVal+'m for '+dateVal, '#a78bfa');
   closeManualLog();
 }
 
@@ -1898,6 +1908,51 @@ function renderPomoStudyGraph(){
     ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);ctx.fillStyle='#c084fc';ctx.fill();
     ctx.strokeStyle='#0f0c29';ctx.lineWidth=1.5;ctx.stroke();
   });
+}
+
+// ── EXPORT / IMPORT ───────────────────────────────────────────────────────
+function exportData(){
+  const data = localStorage.getItem('mt6') || '{}';
+  const blob = new Blob([data], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'mindtrack-backup-'+todayStr()+'.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+function importData(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const parsed = JSON.parse(ev.target.result);
+      // Merge intelligently — take the MAX value for study minutes (most accurate)
+      const current = JSON.parse(localStorage.getItem('mt6') || '{}');
+      // Merge studyMinutes taking the higher value per date
+      const mergedMins = {...(current.studyMinutes||{}), ...(parsed.studyMinutes||{})};
+      Object.keys(current.studyMinutes||{}).forEach(d => {
+        mergedMins[d] = Math.max(current.studyMinutes[d]||0, parsed.studyMinutes?.[d]||0);
+      });
+      parsed.studyMinutes = mergedMins;
+      // Merge todos, moods, runs — combine arrays and deduplicate by id
+      ['todos','assignments','runs','moods','goals'].forEach(k => {
+        const a = current[k]||[], b = parsed[k]||[];
+        const ids = new Set(b.map(x=>x.id));
+        parsed[k] = [...b, ...a.filter(x=>!ids.has(x.id))];
+      });
+      localStorage.setItem('mt6', JSON.stringify(parsed));
+      ld(); // reload state
+      renderDash(); renderTodos(); renderRuns(); renderMoodHistory();
+      updatePomoStats(); renderPomoStudyGraph();
+      alert('✅ Data imported and merged successfully!');
+    } catch(e) {
+      alert('❌ Import failed — make sure this is a valid MindTrack backup file.');
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = ''; // reset input
 }
 
 // ── GRADUATION COUNTDOWN ──────────────────────────────────────────────────
