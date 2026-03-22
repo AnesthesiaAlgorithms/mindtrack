@@ -378,18 +378,17 @@ textarea{resize:vertical;min-height:100px;line-height:1.5;}
       <button class="btn btn-ghost" onclick="pomodoroReset()">↺ Reset</button>
       <button class="btn btn-ghost" onclick="pomodoroSkip()">⏭ Skip</button>
     </div>
-    <div style="margin-top:14px;display:flex;gap:20px;justify-content:center;flex-wrap:wrap;">
+    <div style="margin-top:14px;display:flex;gap:24px;justify-content:center;align-items:flex-end;flex-wrap:wrap;">
       <div style="text-align:center;">
-        <div style="font-size:11px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;">Sessions today</div>
-        <div style="font-size:22px;font-weight:800;color:var(--c1);" id="pomo-count">0</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Sessions today</div>
+        <div style="font-size:30px;font-weight:800;color:var(--c1);line-height:1;" id="pomo-count">0</div>
       </div>
       <div style="text-align:center;">
-        <div style="font-size:11px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;">Focus time</div>
-        <div style="font-size:22px;font-weight:800;color:var(--c2);" id="pomo-focus-time">0m</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Focus time today</div>
+        <div style="font-size:30px;font-weight:800;color:var(--c2);line-height:1;" id="pomo-focus-time">0m</div>
       </div>
-      <div style="text-align:center;">
-        <div style="font-size:11px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;">Total w/ breaks</div>
-        <div style="font-size:22px;font-weight:800;color:rgba(167,139,250,0.6);" id="pomo-total-time">0m</div>
+      <div>
+        <button class="btn btn-ghost btn-sm" onclick="openManualStudyLog()" style="font-size:11px;opacity:0.6;">+ Log time manually</button>
       </div>
     </div>
   </div>
@@ -564,6 +563,30 @@ textarea{resize:vertical;min-height:100px;line-height:1.5;}
 
 </div><!-- end .app -->
 
+<!-- MANUAL STUDY LOG MODAL -->
+<div class="modal-overlay" id="manual-log-modal">
+  <div class="modal">
+    <h3>📝 Log study time manually</h3>
+    <div class="modal-row">
+      <label>Date</label>
+      <input type="date" id="manual-log-date">
+    </div>
+    <div class="modal-row">
+      <label>Minutes studied</label>
+      <input type="number" id="manual-log-mins" min="1" max="720" placeholder="e.g. 90">
+    </div>
+    <div class="modal-row">
+      <label>Sessions to add (optional)</label>
+      <input type="number" id="manual-log-sessions" min="0" max="20" placeholder="e.g. 2" value="0">
+    </div>
+    <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:4px;">This adds to any existing time already logged for that day.</div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeManualLog()">Cancel</button>
+      <button class="btn btn-purple" onclick="saveManualLog()">Add time</button>
+    </div>
+  </div>
+</div>
+
 <!-- EDIT MODAL -->
 <div class="modal-overlay" id="edit-modal">
   <div class="modal">
@@ -705,25 +728,27 @@ function playChime(type) {
   if (!document.getElementById('sound-on').checked) return;
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    // Focus: ascending C5-E5-G5-C6-E6 over 4s  |  Break: descending E6-C6-G5-E5-C5
     const seq = type === 'focus'
-      ? [{f:523,t:0},{f:659,t:0.2},{f:784,t:0.4}]
-      : [{f:784,t:0},{f:659,t:0.2},{f:523,t:0.4}];
+      ? [{f:523,t:0},{f:659,t:0.5},{f:784,t:1.0},{f:1047,t:2.0},{f:1319,t:3.0}]
+      : [{f:1319,t:0},{f:1047,t:0.5},{f:784,t:1.0},{f:659,t:2.0},{f:523,t:3.0}];
     seq.forEach(({f,t}) => {
       const o = ctx.createOscillator(), g = ctx.createGain();
       o.connect(g); g.connect(ctx.destination);
       o.type = 'sine'; o.frequency.value = f;
       g.gain.setValueAtTime(0, ctx.currentTime+t);
-      g.gain.linearRampToValueAtTime(0.32, ctx.currentTime+t+0.04);
-      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+t+0.75);
-      o.start(ctx.currentTime+t); o.stop(ctx.currentTime+t+0.85);
+      g.gain.linearRampToValueAtTime(0.3, ctx.currentTime+t+0.05);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+t+0.9);
+      o.start(ctx.currentTime+t); o.stop(ctx.currentTime+t+1.0);
     });
+    // Rich harmonic shimmer that lingers for 5s
     const o2 = ctx.createOscillator(), g2 = ctx.createGain();
     o2.connect(g2); g2.connect(ctx.destination);
-    o2.type = 'triangle'; o2.frequency.value = type==='focus' ? 1568 : 1047;
-    g2.gain.setValueAtTime(0, ctx.currentTime+0.4);
-    g2.gain.linearRampToValueAtTime(0.08, ctx.currentTime+0.45);
-    g2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+1.3);
-    o2.start(ctx.currentTime+0.4); o2.stop(ctx.currentTime+1.4);
+    o2.type = 'triangle'; o2.frequency.value = type==='focus' ? 1047 : 784;
+    g2.gain.setValueAtTime(0, ctx.currentTime+1.0);
+    g2.gain.linearRampToValueAtTime(0.06, ctx.currentTime+1.2);
+    g2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+5.0);
+    o2.start(ctx.currentTime+1.0); o2.stop(ctx.currentTime+5.1);
   } catch(e) {}
 }
 
@@ -936,6 +961,7 @@ let mType='', mId=null;
 function openModal(title) { document.getElementById('modal-title').textContent=title; document.getElementById('edit-modal').classList.add('open'); }
 function closeModal() { document.getElementById('edit-modal').classList.remove('open'); }
 document.getElementById('edit-modal').addEventListener('click', e => { if(e.target===e.currentTarget) closeModal(); });
+document.getElementById('manual-log-modal').addEventListener('click', e => { if(e.target===e.currentTarget) closeManualLog(); });
 
 function editEvent(id) {
   const ev = S.calendarEvents.find(e=>e.id===id); if(!ev) return;
@@ -1780,12 +1806,51 @@ function renderYTSaved() {
 function updatePomoStats(){
   const ds = todayStr();
   const focusMins = S.studyMinutes[ds] || 0;
-  const totalMins = (S.studyTotalMinutes||{})[ds] || focusMins;
-  const fmt = m => m >= 60 ? Math.floor(m/60)+'h '+(m%60)+'m' : m+'m';
+  const fmt = m => m >= 60 ? Math.floor(m/60)+'h '+(m%60>0?m%60+'m':'') : m+'m';
   const focusEl = document.getElementById('pomo-focus-time');
-  const totalEl = document.getElementById('pomo-total-time');
   if(focusEl) focusEl.textContent = fmt(focusMins);
-  if(totalEl) totalEl.textContent = fmt(totalMins);
+  // Also update session count in case of manual additions
+  const countEl = document.getElementById('pomo-count');
+  if(countEl) countEl.textContent = S.pomo.sessions;
+}
+
+function openManualStudyLog(){
+  // Pre-fill date with today
+  document.getElementById('manual-log-date').value = todayStr();
+  document.getElementById('manual-log-mins').value = '';
+  document.getElementById('manual-log-sessions').value = '0';
+  document.getElementById('manual-log-modal').classList.add('open');
+}
+function closeManualLog(){
+  document.getElementById('manual-log-modal').classList.remove('open');
+}
+function saveManualLog(){
+  const dateVal = document.getElementById('manual-log-date').value;
+  const minsVal = parseInt(document.getElementById('manual-log-mins').value) || 0;
+  const sessVal = parseInt(document.getElementById('manual-log-sessions').value) || 0;
+  if(!dateVal){ alert('Please pick a date.'); return; }
+  if(!minsVal && !sessVal){ alert('Please enter minutes or sessions to add.'); return; }
+  // Add minutes
+  if(minsVal > 0){
+    S.studyMinutes[dateVal] = (S.studyMinutes[dateVal]||0) + minsVal;
+    if(!S.studyTotalMinutes) S.studyTotalMinutes = {};
+    S.studyTotalMinutes[dateVal] = (S.studyTotalMinutes[dateVal]||0) + minsVal;
+  }
+  // Add sessions (only affects today's count)
+  if(sessVal > 0 && dateVal === todayStr()){
+    S.pomo.sessions += sessVal;
+    S.pomo.sessionsDate = todayStr();
+  }
+  // Snapshot study history for that date if it's today
+  if(dateVal === todayStr()) snapshotStudyHistory();
+  sv();
+  updatePomoStats();
+  renderPomoStudyGraph();
+  if(document.getElementById('study').classList.contains('active')){
+    renderStudyGraph();
+  }
+  addPomoLog('✏️ Manual: +'+minsVal+'m logged for '+dateVal, '#a78bfa');
+  closeManualLog();
 }
 
 function renderPomoStudyGraph(){
