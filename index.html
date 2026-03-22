@@ -378,7 +378,25 @@ textarea{resize:vertical;min-height:100px;line-height:1.5;}
       <button class="btn btn-ghost" onclick="pomodoroReset()">↺ Reset</button>
       <button class="btn btn-ghost" onclick="pomodoroSkip()">⏭ Skip</button>
     </div>
-    <div style="margin-top:14px;font-size:13px;color:#475569;">Sessions today: <strong id="pomo-count" style="color:#818cf8;">0</strong></div>
+    <div style="margin-top:14px;display:flex;gap:20px;justify-content:center;flex-wrap:wrap;">
+      <div style="text-align:center;">
+        <div style="font-size:11px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;">Sessions today</div>
+        <div style="font-size:22px;font-weight:800;color:var(--c1);" id="pomo-count">0</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:11px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;">Focus time</div>
+        <div style="font-size:22px;font-weight:800;color:var(--c2);" id="pomo-focus-time">0m</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:11px;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;">Total w/ breaks</div>
+        <div style="font-size:22px;font-weight:800;color:rgba(167,139,250,0.6);" id="pomo-total-time">0m</div>
+      </div>
+    </div>
+  </div>
+  <div class="card card-glow-purple">
+    <h3>📈 Study time — all time</h3>
+    <div id="pomo-study-graph-empty" style="color:rgba(255,255,255,0.3);font-size:13px;text-align:center;padding:18px 0;">Complete sessions to see your study time graph.</div>
+    <canvas id="pomo-study-canvas" height="160" style="display:none;width:100%;"></canvas>
   </div>
   <div class="card"><h3>📋 Session log</h3><div id="pomo-log"><div style="color:#475569;font-size:13px;" data-empty>No sessions yet — start your first focus block!</div></div></div>
 </div>
@@ -608,10 +626,12 @@ let S = {
   studyTasks: JSON.parse(JSON.stringify(DEFAULT_TASKS)),
   studyChecked: {},
   studyHistory: {},   // { "2026-03-18": { done, total, tasks:[{text,subject,done}] } }
-  studyMinutes: {},   // { "2026-03-18": 150 }  auto-filled by Pomodoro
+  studyMinutes: {},      // { "2026-03-18": 150 }  focus minutes only
+  studyTotalMinutes: {}, // { "2026-03-18": 185 }  focus + breaks
   calendarEvents: JSON.parse(JSON.stringify(DEFAULT_GCAL)),
   pomo: { running:false, seconds:3000, total:3000, mode:'Focus', sessions:0, interval:null,
-          focusMins:50, shortMins:10, longMins:20, sessionsBefore:4, sessionCount:0 },
+          focusMins:50, shortMins:10, longMins:20, sessionsBefore:4, sessionCount:0,
+          sessionsDate:'' },  // sessionsDate: track which day sessions belong to
   quiz: { questions:[], current:0, score:0, answered:false },
   quizHistory: [],  // [{id, date, subject, score, total, pct, questions:[{q,options,answer,explanation,userAnswer}]}]
   moodVal: 0,
@@ -626,10 +646,10 @@ function sv() {
     localStorage.setItem('mt6', JSON.stringify({
       todos:S.todos, assignments:S.assignments, runs:S.runs, moods:S.moods, goals:S.goals,
       studyTasks:S.studyTasks, studyChecked:S.studyChecked,
-      studyHistory:S.studyHistory, studyMinutes:S.studyMinutes,
+      studyHistory:S.studyHistory, studyMinutes:S.studyMinutes, studyTotalMinutes:S.studyTotalMinutes||{},
       calendarEvents:S.calendarEvents,
       quizHistory:S.quizHistory,
-      pomo:{ sessions:S.pomo.sessions, focusMins:S.pomo.focusMins, shortMins:S.pomo.shortMins,
+      pomo:{ sessions:S.pomo.sessions, sessionsDate:S.pomo.sessionsDate, focusMins:S.pomo.focusMins, shortMins:S.pomo.shortMins,
              longMins:S.pomo.longMins, sessionsBefore:S.pomo.sessionsBefore }
     }));
   } catch(e) {}
@@ -644,10 +664,14 @@ function ld() {
     if (p.studyChecked) S.studyChecked = p.studyChecked;
     if (p.studyHistory) S.studyHistory = p.studyHistory;
     if (p.studyMinutes) S.studyMinutes = p.studyMinutes;
+    if (p.studyTotalMinutes) S.studyTotalMinutes = p.studyTotalMinutes;
     if (p.calendarEvents && p.calendarEvents.length) S.calendarEvents = p.calendarEvents;
     if (p.quizHistory) S.quizHistory = p.quizHistory;
     if (p.pomo) {
-      S.pomo.sessions      = p.pomo.sessions || 0;
+      const _today = new Date().toISOString().split('T')[0];
+      const _savedDate = p.pomo.sessionsDate || '';
+      S.pomo.sessions      = (_savedDate === _today) ? (p.pomo.sessions || 0) : 0;
+      S.pomo.sessionsDate  = _today;
       S.pomo.focusMins     = p.pomo.focusMins || 50;
       S.pomo.shortMins     = p.pomo.shortMins || 10;
       S.pomo.longMins      = p.pomo.longMins || 20;
@@ -724,6 +748,7 @@ function showTab(t, btnId) {
   if (t==='assignments') renderAssignments();
   if (t==='todos')      renderTodos();
   if (t==='running')    renderRuns();
+  if (t==='pomodoro')   { updatePomoStats(); renderPomoStudyGraph(); }
   if (t==='quizhistory') renderQuizHistory();
   if (t==='mood')       { renderGoals(); renderMoodHistory(); }
   if (t==='youtube')    { renderYTSaved(); }
@@ -1310,16 +1335,27 @@ function pomodoroToggle() {
         if (S.pomo.mode==='Focus') {
           playChime('focus');
           S.pomo.sessions++; S.pomo.sessionCount++;
+          S.pomo.sessionsDate = todayStr();
           document.getElementById('pomo-count').textContent=S.pomo.sessions;
-          // Auto-log study minutes
+          // Auto-log focus minutes
           const _ds=todayStr();
           S.studyMinutes[_ds]=(S.studyMinutes[_ds]||0)+S.pomo.focusMins;
+          if(!S.studyTotalMinutes)S.studyTotalMinutes={};
+          S.studyTotalMinutes[_ds]=(S.studyTotalMinutes[_ds]||0)+S.pomo.focusMins;
+          updatePomoStats();
           sv(); addPomoLog('✅ Focus: '+S.pomo.focusMins+' min complete (+'+S.pomo.focusMins+'m logged)','#818cf8');
           if (document.getElementById('study').classList.contains('active')) renderStudyGraph();
+          renderPomoStudyGraph();
           const isLong=S.pomo.sessionCount%S.pomo.sessionsBefore===0;
           setPomoMode(isLong?S.pomo.longMins:S.pomo.shortMins, isLong?'Long Break':'Short Break', true);
         } else {
           playChime('break');
+          // Log break time to total
+          const _bds=todayStr();
+          if(!S.studyTotalMinutes)S.studyTotalMinutes={};
+          const _breakMins=S.pomo.mode==='Long Break'?S.pomo.longMins:S.pomo.shortMins;
+          S.studyTotalMinutes[_bds]=(S.studyTotalMinutes[_bds]||0)+_breakMins;
+          updatePomoStats();
           addPomoLog('☕ Break done — back to work!','#34d399');
           setPomoMode(S.pomo.focusMins,'Focus',false);
         }
@@ -1740,6 +1776,65 @@ function renderYTSaved() {
     el.appendChild(row);
   });
 }
+// ── POMODORO STATS ────────────────────────────────────────────────────────
+function updatePomoStats(){
+  const ds = todayStr();
+  const focusMins = S.studyMinutes[ds] || 0;
+  const totalMins = (S.studyTotalMinutes||{})[ds] || focusMins;
+  const fmt = m => m >= 60 ? Math.floor(m/60)+'h '+(m%60)+'m' : m+'m';
+  const focusEl = document.getElementById('pomo-focus-time');
+  const totalEl = document.getElementById('pomo-total-time');
+  if(focusEl) focusEl.textContent = fmt(focusMins);
+  if(totalEl) totalEl.textContent = fmt(totalMins);
+}
+
+function renderPomoStudyGraph(){
+  const canvas = document.getElementById('pomo-study-canvas');
+  const empty  = document.getElementById('pomo-study-graph-empty');
+  if(!canvas||!empty) return;
+  const dates = Object.keys(S.studyMinutes).sort();
+  if(!dates.length){canvas.style.display='none';empty.style.display='block';return;}
+  empty.style.display='none'; canvas.style.display='block';
+  const startDate=new Date(dates[0]+'T12:00:00');
+  const endDate=new Date();
+  const allDates=[],allMins=[];
+  for(let d=new Date(startDate);d<=endDate;d.setDate(d.getDate()+1)){
+    const ds=fmtDate(new Date(d));allDates.push(ds);allMins.push(S.studyMinutes[ds]||0);
+  }
+  const n=allDates.length;
+  const W=canvas.offsetWidth||700,H=160;
+  canvas.width=W;canvas.height=H;
+  const ctx=canvas.getContext('2d');ctx.clearRect(0,0,W,H);
+  const PAD={top:16,right:20,bottom:30,left:40};
+  const cW=W-PAD.left-PAD.right,cH=H-PAD.top-PAD.bottom;
+  const maxMins=Math.max(...allMins,60);
+  [0,Math.round(maxMins/2),maxMins].forEach(v=>{
+    const y=PAD.top+cH-(v/maxMins)*cH;
+    ctx.beginPath();ctx.moveTo(PAD.left,y);ctx.lineTo(W-PAD.right,y);
+    ctx.strokeStyle='rgba(255,255,255,0.06)';ctx.lineWidth=1;ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,0.25)';ctx.font='9px system-ui';ctx.textAlign='right';
+    ctx.fillText(v+'m',PAD.left-4,y+3);
+  });
+  const step=Math.max(1,Math.floor(n/8));
+  ctx.fillStyle='rgba(255,255,255,0.25)';ctx.font='9px system-ui';ctx.textAlign='center';
+  for(let i=0;i<n;i+=step){const x=PAD.left+(n>1?i/(n-1):0)*cW;ctx.fillText(allDates[i].slice(5),x,H-6);}
+  const grad=ctx.createLinearGradient(0,PAD.top,0,H-PAD.bottom);
+  grad.addColorStop(0,'rgba(129,140,248,0.3)');grad.addColorStop(1,'rgba(129,140,248,0)');
+  ctx.beginPath();
+  allMins.forEach((m,i)=>{const x=PAD.left+(n>1?i/(n-1):0)*cW,y=PAD.top+cH-(m/maxMins)*cH;i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
+  ctx.lineTo(PAD.left+cW,PAD.top+cH);ctx.lineTo(PAD.left,PAD.top+cH);ctx.closePath();
+  ctx.fillStyle=grad;ctx.fill();
+  ctx.beginPath();
+  allMins.forEach((m,i)=>{const x=PAD.left+(n>1?i/(n-1):0)*cW,y=PAD.top+cH-(m/maxMins)*cH;i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
+  ctx.strokeStyle='#818cf8';ctx.lineWidth=2.5;ctx.lineJoin='round';ctx.stroke();
+  allMins.forEach((m,i)=>{
+    if(!m)return;
+    const x=PAD.left+(n>1?i/(n-1):0)*cW,y=PAD.top+cH-(m/maxMins)*cH;
+    ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);ctx.fillStyle='#c084fc';ctx.fill();
+    ctx.strokeStyle='#0f0c29';ctx.lineWidth=1.5;ctx.stroke();
+  });
+}
+
 // ── GRADUATION COUNTDOWN ──────────────────────────────────────────────────
 const GRAD_DATE  = new Date('2027-05-15T10:00:00');
 const PROG_START = new Date('2024-05-01T00:00:00'); // Program start: May 2024
@@ -1785,6 +1880,8 @@ syncPomoInputs();
 setPomoMode(S.pomo.focusMins, 'Focus', false);
 renderDash(); renderCalendar(); renderAssignments(); renderTodos(); renderRuns(); renderMoodHistory(); renderGoals();
 document.getElementById('pomo-count').textContent = S.pomo.sessions;
+updatePomoStats();
+renderPomoStudyGraph();
 ytInit();
 renderYTSaved();
 </script>
