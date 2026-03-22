@@ -763,8 +763,14 @@ function updateClock() {
   const n = new Date();
   document.getElementById('clock').textContent = n.toLocaleTimeString();
   document.getElementById('datedisp').textContent = n.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+  // Schedule next tick precisely on the next second boundary
+  const msToNextSecond = 1000 - n.getMilliseconds();
+  setTimeout(updateClock, msToNextSecond);
 }
-setInterval(updateClock, 1000);
+// Also re-sync when tab becomes visible again
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) updateClock();
+});
 updateClock();
 
 // ── NAV ────────────────────────────────────────────────────────────────────
